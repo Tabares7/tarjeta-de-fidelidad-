@@ -58,6 +58,13 @@
         <p class="texto-tenue" style="margin:6px 0 0;font-size:.85rem" data-regla></p>
       </section>
 
+      <section class="tarjeta oculto" id="avisos">
+        <p class="etiqueta">Avisos</p>
+        <p style="margin:0" id="avisosTexto">Recibe un aviso cuando te sellen la tarjeta o desbloquees un premio, y entérate de huecos libres y promociones.</p>
+        <button class="boton" id="bAvisos">Activar avisos</button>
+        <p class="aviso" id="avisosEstado" role="status"></p>
+      </section>
+
       <section class="tarjeta" id="guardar">
         <p class="etiqueta">Tenla siempre a mano</p>
         <p style="margin:0">Guarda la tarjeta en tu pantalla de inicio y ábrela como una app.</p>
@@ -83,7 +90,7 @@
 
   <script type="module">
     import { api, cargarAjustes, local, pintarPremios, pintarQR, pintarSellos } from "/comun.js";
-    cargarAjustes();
+    const ajustesListos = cargarAjustes();
 
     const ID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
     const id = location.pathname.match(ID)?.[0] || local.leer("tarjetaId");
@@ -127,7 +134,75 @@
       $("noEncontrada").classList.remove("oculto");
     }
 
-    cargar();
+    // ---------- Avisos (Web Push) ----------
+    const esIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    const instalada = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+    const soportaPush = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+
+    function clave(base64) {
+      const pad = "=".repeat((4 - (base64.length % 4)) % 4);
+      const bin = atob((base64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+      return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    }
+
+    function estadoAvisos(texto, activo) {
+      $("avisosEstado").textContent = texto;
+      $("avisosEstado").className = "aviso" + (activo ? " ok" : "");
+      $("bAvisos").classList.toggle("oculto", Boolean(activo));
+    }
+
+    async function prepararAvisos() {
+      const ajustes = await ajustesListos;
+      if (!ajustes.vapidPublica || !id) return;
+      const caja = $("avisos");
+
+      if (!soportaPush) {
+        // iPhone en Safari: los avisos solo funcionan desde la pantalla de inicio.
+        if (esIOS && !instalada) {
+          caja.classList.remove("oculto");
+          $("bAvisos").classList.add("oculto");
+          $("avisosEstado").textContent = "Para recibir avisos, guarda la tarjeta en tu pantalla de inicio (abajo te explicamos cómo) y ábrela desde ahí.";
+        }
+        return;
+      }
+
+      caja.classList.remove("oculto");
+      const registro = await navigator.serviceWorker.register("/sw.js");
+      const actual = await registro.pushManager.getSubscription();
+
+      if (Notification.permission === "denied") {
+        $("bAvisos").classList.add("oculto");
+        $("avisosEstado").textContent = "Bloqueaste los avisos. Puedes activarlos en los ajustes de notificaciones del teléfono.";
+        return;
+      }
+      if (actual && Notification.permission === "granted") {
+        estadoAvisos("✓ Avisos activados en este teléfono.", true);
+        // Se vuelve a enviar por si la tarjeta no la tenía registrada.
+        api("/api/avisos", { metodo: "POST", datos: { id, suscripcion: actual.toJSON() } }).catch(() => {});
+      }
+
+      $("bAvisos").onclick = async () => {
+        $("bAvisos").disabled = true;
+        try {
+          const permiso = await Notification.requestPermission();
+          if (permiso !== "granted") {
+            estadoAvisos("No se activaron. Si cambias de idea, toca el botón otra vez.");
+            return;
+          }
+          const sub =
+            (await registro.pushManager.getSubscription()) ||
+            (await registro.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: clave(ajustes.vapidPublica) }));
+          await api("/api/avisos", { metodo: "POST", datos: { id, suscripcion: sub.toJSON() } });
+          estadoAvisos("✓ Avisos activados en este teléfono.", true);
+        } catch (e) {
+          estadoAvisos("No se pudieron activar los avisos. Intenta de nuevo.");
+        } finally {
+          $("bAvisos").disabled = false;
+        }
+      };
+    }
+
+    cargar().then(() => prepararAvisos().catch(() => {}));
     // Se actualiza sola al volver a la app (por ejemplo, justo después de que te sellen).
     document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && cargar());
     setInterval(() => document.visibilityState === "visible" && cargar(), 15000);

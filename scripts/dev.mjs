@@ -8,7 +8,7 @@ process.env.ALMACEN ??= "memoria";
 process.env.ADMIN_PASSWORD ??= "demo";
 
 const RAIZ = new URL("../public/", import.meta.url).pathname;
-const FUNCIONES = ["ajustes", "registro", "tarjeta", "manifest", "admin"];
+const FUNCIONES = ["ajustes", "registro", "tarjeta", "manifest", "admin", "avisos"];
 const rutas = {};
 for (const f of FUNCIONES) {
   const m = await import(`../netlify/functions/${f}.mjs`);

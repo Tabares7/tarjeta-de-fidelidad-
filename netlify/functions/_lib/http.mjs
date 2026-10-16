@@ -61,5 +61,6 @@ export function vistaAdmin(c) {
     creado: c.creado,
     ultimaVisita: c.ultimaVisita,
     historial: c.historial.slice(-10).reverse(),
+    avisos: (c.suscripciones ?? []).length > 0,
   };
 }

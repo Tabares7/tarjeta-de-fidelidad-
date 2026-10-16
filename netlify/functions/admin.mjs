@@ -2,6 +2,7 @@
 import { AJUSTES } from "./_lib/ajustes.mjs";
 import { guardarCliente, listarClientes, obtenerCliente } from "./_lib/db.mjs";
 import { error, esAdmin, ID_VALIDO, json, leerCuerpo, vistaAdmin } from "./_lib/http.mjs";
+import { mensajeSello, notificar, pushDisponible } from "./_lib/push.mjs";
 
 const HORA = 60 * 60 * 1000;
 
@@ -35,6 +36,43 @@ export default async (req) => {
     return json({ clientes: clientes.slice(0, 100).map(vistaAdmin), total: clientes.length });
   }
 
+  if (accion === "estadoAvisos") {
+    const clientes = await listarClientes();
+    return json({
+      configurado: pushDisponible(),
+      conAvisos: clientes.filter((c) => (c.suscripciones ?? []).length).length,
+      total: clientes.length,
+    });
+  }
+
+  if (accion === "avisar") {
+    const titulo = String(cuerpo.titulo ?? "").trim().slice(0, 60) || AJUSTES.estudio;
+    const mensaje = String(cuerpo.mensaje ?? "").trim();
+    if (!mensaje) return error("Escribe el mensaje.");
+    if (mensaje.length > 200) return error("El mensaje es muy largo (máximo 200 letras).");
+    if (!pushDisponible()) return error("Los avisos no están configurados en Netlify.", 500);
+
+    let destinatarios;
+    if (cuerpo.id) {
+      const c = ID_VALIDO.test(String(cuerpo.id)) ? await obtenerCliente(String(cuerpo.id)) : null;
+      if (!c) return error("No se encontró la tarjeta.", 404);
+      destinatarios = [c];
+    } else {
+      destinatarios = await listarClientes();
+    }
+    destinatarios = destinatarios.filter((c) => (c.suscripciones ?? []).length);
+
+    let personas = 0;
+    let fallidos = 0;
+    for (const c of destinatarios) {
+      const r = await notificar(c, { titulo, cuerpo: mensaje });
+      if (r.enviados) personas++;
+      fallidos += r.fallidos;
+      if (r.cambio) await guardarCliente(c);
+    }
+    return json({ personas, fallidos, intentados: destinatarios.length });
+  }
+
   const id = String(cuerpo.id ?? "");
   if (!ID_VALIDO.test(id)) return error("Ese código no es una tarjeta válida.", 404);
   const cliente = await obtenerCliente(id);
@@ -56,6 +94,10 @@ export default async (req) => {
       }
       cliente.sellos += 1;
       anotar(cliente, "sello");
+      // Aviso automático al cliente (si lo activó). Un fallo aquí no impide el sello.
+      try {
+        await notificar(cliente, mensajeSello(cliente));
+      } catch {}
       break;
     }
 

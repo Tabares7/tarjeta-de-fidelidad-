@@ -33,6 +33,13 @@ Los datos de los clientes se guardan en Netlify Blobs, que viene incluido en Net
 - **Error al sellar:** *Quitar sello*. Si intentas sellar dos veces en menos de 12 horas, el panel te pide confirmación.
 - **Premios:** la tarjeta tiene 8 sellos. Al sello 4 se desbloquea un 20% de descuento y al sello 8 una sesión gratis. Cuando hay un premio disponible, en el panel aparece su botón *Canjear*. El 20% se puede usar una vez por tarjeta; al canjear la sesión gratis, la tarjeta vuelve a cero.
 
+## Avisos (notificaciones)
+
+- El cliente los activa desde su tarjeta con el botón **Activar avisos**. En iPhone solo funciona si abrió la tarjeta desde el ícono de la pantalla de inicio.
+- **Automáticos:** al sellar, el cliente recibe «¡Nuevo sello!» con cuánto le falta, o «¡Premio desbloqueado!» al llegar a un premio.
+- **Manuales:** en el panel, pestaña **Avisos**, escribes un mensaje y lo envías a todos los clientes con avisos activados o a uno en concreto (ábrelo primero en *Clientes*).
+- Necesitan las variables `VAPID_PUBLIC_KEY` y `VAPID_PRIVATE_KEY` en Netlify (ya configuradas). No las cambies: si cambian, todos los clientes tendrían que volver a activar los avisos.
+
 ## Probarla en tu computadora (opcional)
 
 Necesitas Node.js 20 o más nuevo.

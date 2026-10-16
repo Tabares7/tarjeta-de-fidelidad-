@@ -14,7 +14,7 @@
   <script src="/vendor/qrcode.js"></script>
   <script src="/vendor/html5-qrcode.min.js"></script>
   <style>
-    .pestanas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: var(--superficie); border: 1px solid var(--borde); border-radius: 14px; padding: 5px; margin-bottom: 16px; }
+    .pestanas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; background: var(--superficie); border: 1px solid var(--borde); border-radius: 14px; padding: 5px; margin-bottom: 16px; }
     .pestanas button { font: inherit; font-size: .9rem; background: none; border: 0; color: var(--tenue); padding: 10px 4px; border-radius: 10px; cursor: pointer; }
     .pestanas button[aria-selected="true"] { background: var(--fondo); color: var(--texto); font-weight: 600; }
     #lector { border-radius: 14px; overflow: hidden; background: #000; min-height: 260px; }
@@ -81,7 +81,8 @@
       <nav class="pestanas no-imprimir" role="tablist">
         <button role="tab" data-vista="vistaEscanear" aria-selected="true">Escanear</button>
         <button role="tab" data-vista="vistaClientes" aria-selected="false">Clientes</button>
-        <button role="tab" data-vista="vistaQR" aria-selected="false">QR registro</button>
+        <button role="tab" data-vista="vistaAvisos" aria-selected="false">Avisos</button>
+        <button role="tab" data-vista="vistaQR" aria-selected="false">QR</button>
       </nav>
 
       <section id="vistaEscanear" class="vista">
@@ -95,6 +96,27 @@
           <input id="buscar" type="search" placeholder="Buscar por nombre o teléfono" autocomplete="off">
           <p class="texto-tenue" id="total" style="font-size:.85rem;margin:10px 0 0"></p>
           <div id="lista" style="margin-top:6px"></div>
+        </div>
+      </section>
+
+      <section id="vistaAvisos" class="vista oculto">
+        <div class="tarjeta">
+          <p class="etiqueta">Enviar un aviso</p>
+          <p class="texto-tenue" id="avResumen" style="margin:0">Cargando…</p>
+          <form id="formAviso">
+            <label for="avTitulo">Título</label>
+            <input id="avTitulo" maxlength="60" placeholder="Piter Tabares">
+            <label for="avMensaje">Mensaje</label>
+            <textarea id="avMensaje" rows="4" maxlength="200" required placeholder="Ej.: Se liberó un hueco este sábado a las 2 pm. ¡Escríbeme si lo quieres!"></textarea>
+            <p class="texto-tenue" style="font-size:.8rem;margin:4px 0 0;text-align:right"><span id="avCuenta">0</span>/200</p>
+            <label for="avDestino">Para</label>
+            <select id="avDestino">
+              <option value="">Todos los clientes con avisos activados</option>
+            </select>
+            <button class="boton" type="submit" id="avEnviar">Enviar aviso</button>
+            <p class="aviso" id="avEstado" role="status"></p>
+          </form>
+          <p class="texto-tenue" style="font-size:.85rem;margin:14px 0 0">Los avisos de sellos y premios se envían solos al sellar.</p>
         </div>
       </section>
 
@@ -165,6 +187,7 @@
         document.querySelectorAll(".vista").forEach((v) => v.classList.toggle("oculto", v.id !== b.dataset.vista));
         if (b.dataset.vista !== "vistaEscanear") await detenerCamara();
         if (b.dataset.vista === "vistaClientes") buscar();
+        if (b.dataset.vista === "vistaAvisos") prepararAvisos();
       }),
     );
 
@@ -267,7 +290,7 @@
       actual = c;
       $("cliente").classList.remove("oculto");
       $("cNombre").textContent = c.nombre;
-      $("cTelefono").textContent = c.telefono;
+      $("cTelefono").textContent = c.telefono + (c.avisos ? " · avisos activados" : "");
       pintarSellos($("cSellos"), c.sellos, c.total, nuevo, c.premios.map((p) => p.en));
       $("cConteo").textContent = `${c.sellos} de ${c.total} sellos`;
       $("cCanjes").textContent = c.canjes ? `${c.canjes} premio${c.canjes > 1 ? "s" : ""} usado${c.canjes > 1 ? "s" : ""}` : "";
@@ -308,6 +331,53 @@
     $("bQuitar").addEventListener("click", () => confirm("¿Quitar un sello a esta tarjeta?") && accion("quitar"));
 
     $("cCerrar").addEventListener("click", () => { $("cliente").classList.add("oculto"); actual = null; });
+
+    // ---------- Avisos ----------
+    async function prepararAvisos() {
+      const destino = $("avDestino");
+      destino.length = 1;
+      if (actual) {
+        const o = new Option(actual.avisos ? `Solo a ${actual.nombre}` : `Solo a ${actual.nombre} (no tiene avisos activados)`, actual.id);
+        o.disabled = !actual.avisos;
+        destino.add(o);
+      }
+      try {
+        const e = await admin({ accion: "estadoAvisos" });
+        $("avResumen").textContent = !e.configurado
+          ? "Los avisos todavía no están configurados en Netlify."
+          : `${e.conAvisos} de ${e.total} clientes tienen los avisos activados.`;
+        $("avEnviar").disabled = !e.configurado || !e.conAvisos;
+      } catch (err) {
+        $("avResumen").textContent = err.message;
+      }
+    }
+
+    $("avMensaje").addEventListener("input", () => ($("avCuenta").textContent = $("avMensaje").value.length));
+
+    $("formAviso").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const mensaje = $("avMensaje").value.trim();
+      if (!mensaje) return;
+      const id = $("avDestino").value;
+      const para = id ? actual.nombre : "todos los clientes con avisos activados";
+      if (!confirm(`¿Enviar este aviso a ${para}?\n\n${mensaje}`)) return;
+      $("avEnviar").disabled = true;
+      $("avEstado").className = "aviso";
+      $("avEstado").textContent = "Enviando…";
+      try {
+        const r = await admin({ accion: "avisar", titulo: $("avTitulo").value, mensaje, id: id || undefined });
+        $("avEstado").className = "aviso ok";
+        $("avEstado").textContent = r.personas
+          ? `Enviado a ${r.personas} cliente${r.personas === 1 ? "" : "s"}.`
+          : "No se pudo entregar a nadie. Puede que hayan desactivado los avisos.";
+        if (r.personas) { $("avMensaje").value = ""; $("avCuenta").textContent = "0"; }
+      } catch (err) {
+        $("avEstado").className = "aviso error";
+        $("avEstado").textContent = err.message;
+      } finally {
+        $("avEnviar").disabled = false;
+      }
+    });
 
     iniciar();
   </script>
