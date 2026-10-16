@@ -10,7 +10,7 @@ Tarjeta de sellos digital para el estudio. El cliente se registra con un QR, gua
 | `/tarjeta/?id=…` | Clientes | Su tarjeta: sellos, premio y su QR |
 | `/admin/` | Tú | Escanear tarjetas, sellar, canjear premios, lista de clientes y QR de registro para imprimir |
 
-## Cambiar nombre, premio, número de sellos y colores
+## Cambiar nombre, premios, número de sellos y colores
 
 Todo está en un solo archivo: **`netlify/functions/_lib/ajustes.mjs`**. Cambias los valores, subes el archivo a GitHub y Netlify publica la nueva versión sola en uno o dos minutos.
 
@@ -31,7 +31,7 @@ Los datos de los clientes se guardan en Netlify Blobs, que viene incluido en Net
 - **Cliente nuevo:** escanea el QR del estudio, pone su nombre y teléfono y le aparece su tarjeta. Si se registra dos veces con el mismo teléfono, recupera la misma tarjeta.
 - **Sellar:** en `/admin/` → *Abrir cámara* → apuntas al QR de su tarjeta → *Sellar visita*. Si la cámara falla, búscalo en *Clientes*.
 - **Error al sellar:** *Quitar sello*. Si intentas sellar dos veces en menos de 12 horas, el panel te pide confirmación.
-- **Premio:** al completar los sellos, la tarjeta del cliente muestra «¡Premio listo!» y en el panel se activa *Canjear premio*, que reinicia los sellos.
+- **Premios:** la tarjeta tiene 8 sellos. Al sello 4 se desbloquea un 20% de descuento y al sello 8 una sesión gratis. Cuando hay un premio disponible, en el panel aparece su botón *Canjear*. El 20% se puede usar una vez por tarjeta; al canjear la sesión gratis, la tarjeta vuelve a cero.
 
 ## Probarla en tu computadora (opcional)
 

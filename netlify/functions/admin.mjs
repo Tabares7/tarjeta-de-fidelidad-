@@ -5,9 +5,9 @@ import { error, esAdmin, ID_VALIDO, json, leerCuerpo, vistaAdmin } from "./_lib/
 
 const HORA = 60 * 60 * 1000;
 
-function anotar(cliente, tipo) {
+function anotar(cliente, tipo, detalle) {
   const fecha = new Date().toISOString();
-  cliente.historial.push({ tipo, fecha });
+  cliente.historial.push(detalle ? { tipo, fecha, detalle } : { tipo, fecha });
   cliente.historial = cliente.historial.slice(-50);
   if (tipo === "sello") cliente.ultimaVisita = fecha;
 }
@@ -39,15 +39,16 @@ export default async (req) => {
   if (!ID_VALIDO.test(id)) return error("Ese código no es una tarjeta válida.", 404);
   const cliente = await obtenerCliente(id);
   if (!cliente) return error("No se encontró la tarjeta.", 404);
-  const meta = AJUSTES.sellosParaPremio;
+  const total = AJUSTES.sellosTotales;
+  cliente.canjeados ??= [];
 
   switch (accion) {
     case "ver":
       return json(vistaAdmin(cliente));
 
     case "sellar": {
-      if (cliente.sellos >= meta) {
-        return error("Esta tarjeta ya tiene el premio listo. Canjéalo antes de seguir sellando.", 409, "premio");
+      if (cliente.sellos >= total) {
+        return error("La tarjeta está completa. Canjea el premio final para empezar una nueva.", 409, "completa");
       }
       const ultimo = cliente.ultimaVisita ? Date.parse(cliente.ultimaVisita) : 0;
       if (!cuerpo.forzar && Date.now() - ultimo < AJUSTES.horasEntreSellos * HORA) {
@@ -64,12 +65,22 @@ export default async (req) => {
       anotar(cliente, "quitado");
       break;
 
-    case "canjear":
-      if (cliente.sellos < meta) return error(`Faltan ${meta - cliente.sellos} sellos para el premio.`, 409);
-      cliente.sellos -= meta;
+    case "canjear": {
+      const premio = AJUSTES.premios.find((p) => p.en === Number(cuerpo.en));
+      if (!premio) return error("Ese premio no existe.");
+      if (cliente.canjeados.includes(premio.en)) return error("Ese premio ya se usó en esta tarjeta.", 409);
+      if (cliente.sellos < premio.en) return error(`Faltan ${premio.en - cliente.sellos} sellos para ese premio.`, 409);
       cliente.canjes += 1;
-      anotar(cliente, "canje");
+      anotar(cliente, "canje", premio.premio);
+      if (premio.en >= total) {
+        // Premio final: la tarjeta vuelve a empezar.
+        cliente.sellos = 0;
+        cliente.canjeados = [];
+      } else {
+        cliente.canjeados.push(premio.en);
+      }
       break;
+    }
 
     default:
       return error("Acción desconocida.");

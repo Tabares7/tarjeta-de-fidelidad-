@@ -27,7 +27,7 @@
 <body>
   <main class="contenedor">
     <header class="marca">
-      <h1 data-estudio>Tinta Studio</h1>
+      <h1 data-estudio>Piter Tabares</h1>
       <p data-lema></p>
     </header>
 
@@ -48,7 +48,7 @@
           <strong id="conteo"></strong>
           <span class="texto-tenue" id="falta"></span>
         </div>
-        <div class="premio" id="premio"></div>
+        <div class="premios" id="premios"></div>
       </section>
 
       <section class="tarjeta centro">
@@ -81,7 +81,7 @@
   </main>
 
   <script type="module">
-    import { api, cargarAjustes, local, pintarQR, pintarSellos } from "/comun.js";
+    import { api, cargarAjustes, local, pintarPremios, pintarQR, pintarSellos } from "/comun.js";
     cargarAjustes();
 
     const params = new URLSearchParams(location.search);
@@ -101,18 +101,11 @@
 
         $("nombre").textContent = t.nombre;
         const nuevo = sellosPrevios !== null && t.sellos > sellosPrevios;
-        pintarSellos($("sellos"), t.sellos, t.requeridos, nuevo);
+        pintarSellos($("sellos"), t.sellos, t.total, nuevo, t.premios.map((p) => p.en));
         sellosPrevios = t.sellos;
-        $("conteo").textContent = `${t.sellos} de ${t.requeridos} sellos`;
-        const faltan = t.requeridos - t.sellos;
-        $("falta").textContent = t.listo ? "" : `te ${faltan === 1 ? "falta 1" : `faltan ${faltan}`}`;
-
-        const premio = $("premio");
-        premio.className = "premio" + (t.listo ? " listo" : "");
-        premio.innerHTML = "";
-        const b = document.createElement("b");
-        b.textContent = t.listo ? "¡Premio listo! " : "Premio: ";
-        premio.append(b, t.listo ? `Pídelo en tu próxima visita: ${t.premio}.` : `${t.premio}.`);
+        $("conteo").textContent = `${t.sellos} de ${t.total} sellos`;
+        $("falta").textContent = t.disponibles ? "¡Tienes un premio!" : "";
+        pintarPremios($("premios"), t.premios, t.sellos);
 
         if (!$("qr").firstChild) pintarQR($("qr"), `${location.origin}/tarjeta/?id=${id}`);
 

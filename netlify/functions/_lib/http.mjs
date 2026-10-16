@@ -30,14 +30,25 @@ export function esAdmin(req) {
 }
 
 // Lo que ve el cliente en su tarjeta (sin teléfono ni historial).
+export function estadoPremios(c) {
+  const canjeados = c.canjeados ?? [];
+  return AJUSTES.premios.map((p) => ({
+    en: p.en,
+    premio: p.premio,
+    estado: canjeados.includes(p.en) ? "usado" : c.sellos >= p.en ? "disponible" : "pendiente",
+  }));
+}
+
 export function vistaPublica(c) {
+  const premios = estadoPremios(c);
   return {
     nombre: c.nombre,
     sellos: c.sellos,
-    requeridos: AJUSTES.sellosParaPremio,
-    premio: AJUSTES.premio,
+    total: AJUSTES.sellosTotales,
+    premios,
     canjes: c.canjes,
-    listo: c.sellos >= AJUSTES.sellosParaPremio,
+    completa: c.sellos >= AJUSTES.sellosTotales,
+    disponibles: premios.filter((p) => p.estado === "disponible").length,
   };
 }
 

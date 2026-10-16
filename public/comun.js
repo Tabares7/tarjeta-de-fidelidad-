@@ -6,8 +6,8 @@ export async function cargarAjustes() {
   for (const [k, v] of Object.entries(a.colores)) document.documentElement.style.setProperty(`--${k}`, v);
   document.querySelectorAll("[data-estudio]").forEach((el) => (el.textContent = a.estudio));
   document.querySelectorAll("[data-lema]").forEach((el) => (el.textContent = a.lema));
-  document.querySelectorAll("[data-premio]").forEach((el) => (el.textContent = a.premio));
-  document.querySelectorAll("[data-meta]").forEach((el) => (el.textContent = a.sellosParaPremio));
+  document.querySelectorAll("[data-total]").forEach((el) => (el.textContent = a.sellosTotales));
+  document.querySelectorAll("[data-resumen]").forEach((el) => (el.textContent = resumenPremios(a.premios)));
   document.querySelectorAll("[data-regla]").forEach((el) => (el.textContent = a.reglaSello));
   document.title = document.title.replace("{estudio}", a.estudio);
   return a;
@@ -39,12 +39,20 @@ export const local = {
 const ESTRELLA =
   '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1.5l2.6 7.1 7.4.4-5.8 4.7 2 7.3L12 16.8 5.8 21l2-7.3L2 9l7.4-.4z"/></svg>';
 
-export function pintarSellos(contenedor, sellos, total, nuevo = false) {
+// "20% de descuento… a los 4 sellos y una sesión gratis a los 8."
+export function resumenPremios(premios) {
+  const partes = premios.map((p, i) => `${i === 0 ? p.premio : p.premio.charAt(0).toLowerCase() + p.premio.slice(1)} a los ${p.en} sellos`);
+  return partes.length > 1 ? partes.slice(0, -1).join(", ") + " y " + partes.at(-1) + "." : partes[0] + ".";
+}
+
+export function pintarSellos(contenedor, sellos, total, nuevo = false, hitos = []) {
   contenedor.innerHTML = "";
-  contenedor.style.gridTemplateColumns = `repeat(${Math.min(total, 5)}, 1fr)`;
+  const columnas = total > 5 ? Math.ceil(total / 2) : total;
+  contenedor.style.gridTemplateColumns = `repeat(${columnas}, 1fr)`;
   for (let i = 0; i < total; i++) {
     const s = document.createElement("div");
     s.className = "sello";
+    if (hitos.includes(i + 1)) s.classList.add("hito");
     if (i < sellos) {
       s.classList.add("lleno");
       if (nuevo && i === sellos - 1) s.classList.add("nuevo");
@@ -61,4 +69,23 @@ export function pintarQR(contenedor, texto) {
   q.addData(texto);
   q.make();
   contenedor.innerHTML = q.createSvgTag({ cellSize: 6, margin: 2, scalable: true });
+}
+
+// Lista de premios con su estado: disponible, usado o pendiente.
+export function pintarPremios(contenedor, premios, sellos) {
+  contenedor.innerHTML = "";
+  for (const p of premios) {
+    const fila = document.createElement("div");
+    fila.className = `premio ${p.estado}`;
+    const titulo = document.createElement("b");
+    titulo.textContent = p.premio;
+    const estado = document.createElement("span");
+    const faltan = p.en - sellos;
+    estado.textContent =
+      p.estado === "disponible" ? "¡Listo! Pídelo en tu próxima visita"
+      : p.estado === "usado" ? "Usado"
+      : `Al sello ${p.en} · ${faltan === 1 ? "te falta 1" : `te faltan ${faltan}`}`;
+    fila.append(titulo, estado);
+    contenedor.append(fila);
+  }
 }

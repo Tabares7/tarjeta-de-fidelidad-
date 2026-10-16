@@ -1,14 +1,19 @@
-// ⚙️ AJUSTES DE LA TARJETA — VALORES PROVISIONALES
-// Cambia estos valores cuando tengas los definitivos. Todo el sitio los lee de aquí.
+// ⚙️ AJUSTES DE LA TARJETA
+// Todo el sitio lee estos valores. Cambia aquí y se actualiza en todas partes.
 
 export const AJUSTES = {
-  estudio: "Tinta Studio",              // Nombre que aparece en la tarjeta
-  lema: "Tatuajes · Irving, TX",         // Línea pequeña debajo del nombre
-  sellosParaPremio: 5,                   // Sellos necesarios para el premio
-  premio: "20% de descuento en tu próximo tatuaje",
-  reglaSello: "Recibes un sello por cada sesión de tatuaje.",
-  horasEntreSellos: 12,                  // Avisa si intentas sellar dos veces en poco tiempo
+  estudio: "Piter Tabares",
+  lema: "Tattoo Artist · Irving, TX",
+  sellosTotales: 8,
+  // Premios por cantidad de sellos. Al canjear el último, la tarjeta vuelve a empezar.
+  premios: [
+    { en: 4, premio: "20% de descuento en tu próxima sesión" },
+    { en: 8, premio: "Una sesión gratis" },
+  ],
+  reglaSello: "Recibes un sello por cada sesión de más de 5 horas.",
+  horasEntreSellos: 12, // Avisa si intentas sellar dos veces en poco tiempo
 
+  // Colores provisionales (pendientes de los definitivos)
   colores: {
     fondo: "#121110",
     superficie: "#1c1a18",

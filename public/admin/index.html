@@ -42,7 +42,7 @@
 <body>
   <main class="contenedor">
     <header class="marca no-imprimir">
-      <h1 data-estudio>Tinta Studio</h1>
+      <h1 data-estudio>Piter Tabares</h1>
       <p>Panel del estudio</p>
     </header>
 
@@ -71,9 +71,9 @@
         <div class="progreso"><strong id="cConteo"></strong><span class="texto-tenue" id="cCanjes"></span></div>
         <div class="acciones">
           <button class="boton principal" id="bSellar">Sellar visita</button>
-          <button class="boton secundario" id="bCanjear">Canjear premio</button>
-          <button class="boton secundario" id="bQuitar">Quitar sello</button>
         </div>
+        <div id="cPremios"></div>
+        <button class="boton secundario" id="bQuitar" style="margin-top:10px">Quitar un sello</button>
         <p class="aviso" id="cAviso" role="status"></p>
         <ul class="historial" id="cHistorial"></ul>
       </section>
@@ -103,7 +103,7 @@
           <p class="etiqueta">Pide tu tarjeta de fidelidad</p>
           <h2 class="titulo" data-estudio></h2>
           <div class="qr qr-grande" id="qrRegistro"></div>
-          <p class="texto-tenue" style="margin:4px 0 0">Escanea con la cámara de tu teléfono.<br>Junta <span data-meta></span> sellos: <span data-premio></span>.</p>
+          <p class="texto-tenue" style="margin:4px 0 0">Escanea con la cámara de tu teléfono.<br><span data-resumen></span></p>
           <button class="boton secundario no-imprimir" onclick="print()">Imprimir</button>
         </div>
       </section>
@@ -215,8 +215,8 @@
           tel.textContent = c.telefono;
           info.append(nombre, tel);
           const chip = document.createElement("span");
-          chip.className = "chip" + (c.listo ? " listo" : "");
-          chip.textContent = c.listo ? "Premio listo" : `${c.sellos}/${c.requeridos}`;
+          chip.className = "chip" + (c.disponibles ? " listo" : "");
+          chip.textContent = c.disponibles ? `${c.sellos}/${c.total} · premio` : `${c.sellos}/${c.total}`;
           fila.append(info, chip);
           fila.addEventListener("click", () => abrirCliente(c.id));
           lista.append(fila);
@@ -238,7 +238,29 @@
       }
     }
 
-    const NOMBRES = { sello: "Sello", quitado: "Sello quitado", canje: "Premio canjeado" };
+    const NOMBRES = { sello: "Sello", quitado: "Sello quitado", canje: "Canjeado" };
+
+    // Un botón de canje por cada premio disponible.
+    function pintarPremiosAdmin(c) {
+      const caja = $("cPremios");
+      caja.innerHTML = "";
+      for (const p of c.premios) {
+        if (p.estado !== "disponible") continue;
+        const b = document.createElement("button");
+        b.className = "boton";
+        b.style.marginTop = "10px";
+        b.textContent = `Canjear: ${p.premio}`;
+        b.addEventListener("click", () => {
+          const final = p.en >= c.total;
+          const pendientes = c.premios.filter((x) => x.en < p.en && x.estado === "disponible");
+          let msg = `¿Entregar «${p.premio}» a ${c.nombre}?`;
+          if (final) msg += "\n\nLa tarjeta volverá a empezar desde cero.";
+          if (final && pendientes.length) msg += ` Ojo: todavía no ha usado «${pendientes[0].premio}» y se perderá.`;
+          if (confirm(msg)) accion("canjear", { en: p.en });
+        });
+        caja.append(b);
+      }
+    }
     const fecha = (iso) => new Date(iso).toLocaleString("es", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
     function mostrarCliente(c, nuevo = false) {
@@ -246,17 +268,17 @@
       $("cliente").classList.remove("oculto");
       $("cNombre").textContent = c.nombre;
       $("cTelefono").textContent = c.telefono;
-      pintarSellos($("cSellos"), c.sellos, c.requeridos, nuevo);
-      $("cConteo").textContent = c.listo ? "¡Premio listo!" : `${c.sellos} de ${c.requeridos} sellos`;
-      $("cCanjes").textContent = c.canjes ? `${c.canjes} premio${c.canjes > 1 ? "s" : ""} canjeado${c.canjes > 1 ? "s" : ""}` : "";
-      $("bSellar").disabled = c.listo;
-      $("bCanjear").disabled = !c.listo;
+      pintarSellos($("cSellos"), c.sellos, c.total, nuevo, c.premios.map((p) => p.en));
+      $("cConteo").textContent = `${c.sellos} de ${c.total} sellos`;
+      $("cCanjes").textContent = c.canjes ? `${c.canjes} premio${c.canjes > 1 ? "s" : ""} usado${c.canjes > 1 ? "s" : ""}` : "";
+      $("bSellar").disabled = c.completa;
+      pintarPremiosAdmin(c);
       $("bQuitar").disabled = c.sellos === 0;
       const h = $("cHistorial");
       h.innerHTML = "";
       for (const e of c.historial) {
         const li = document.createElement("li");
-        li.textContent = `${NOMBRES[e.tipo] ?? e.tipo} · ${fecha(e.fecha)}`;
+        li.textContent = `${NOMBRES[e.tipo] ?? e.tipo}${e.detalle ? `: ${e.detalle}` : ""} · ${fecha(e.fecha)}`;
         h.append(li);
       }
     }
@@ -270,10 +292,10 @@
       try {
         const antes = actual.sellos;
         const c = await admin({ accion: nombre, id: actual.id, ...extra });
-        mostrarCliente(c, c.sellos > antes);
+        mostrarCliente(c, nombre === "sellar");
         if (!$("vistaClientes").classList.contains("oculto")) buscar();
         avisoCliente(
-          { sellar: "Visita sellada.", quitar: "Sello quitado.", canjear: "Premio canjeado. La tarjeta sigue sumando." }[nombre],
+          { sellar: "Visita sellada.", quitar: "Sello quitado.", canjear: "Premio canjeado." }[nombre],
           "ok",
         );
       } catch (err) {
@@ -284,7 +306,7 @@
 
     $("bSellar").addEventListener("click", () => accion("sellar"));
     $("bQuitar").addEventListener("click", () => confirm("¿Quitar un sello a esta tarjeta?") && accion("quitar"));
-    $("bCanjear").addEventListener("click", () => confirm(`¿Entregar el premio a ${actual.nombre}?`) && accion("canjear"));
+
     $("cCerrar").addEventListener("click", () => { $("cliente").classList.add("oculto"); actual = null; });
 
     iniciar();
