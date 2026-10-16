@@ -7,7 +7,7 @@ Tarjeta de sellos digital para el estudio. El cliente se registra con un QR, gua
 | Dirección | Para quién | Qué hace |
 |---|---|---|
 | `/` | Clientes | Registro con nombre y teléfono |
-| `/tarjeta/?id=…` | Clientes | Su tarjeta: sellos, premio y su QR |
+| `/t/<código>/` | Clientes | Su tarjeta: sellos, premios y su QR. Es la dirección que abre el ícono de la pantalla de inicio |
 | `/admin/` | Tú | Escanear tarjetas, sellar, canjear premios, lista de clientes y QR de registro para imprimir |
 
 ## Cambiar nombre, premios, número de sellos y colores

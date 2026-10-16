@@ -36,6 +36,7 @@
         <button class="boton" type="submit" id="enviar">Crear mi tarjeta</button>
         <p class="aviso" id="aviso" role="status"></p>
       </form>
+      <p class="texto-tenue" style="font-size:.88rem;margin:4px 0 0">¿Ya tenías tarjeta? Escribe tu nombre y el mismo teléfono y te abrimos la tuya, con tus sellos.</p>
     </section>
 
     <p class="texto-tenue centro" style="font-size:.82rem;margin-top:18px">
@@ -48,9 +49,12 @@
     cargarAjustes();
 
     const guardada = local.leer("tarjetaId");
+    // Abierta desde la pantalla de inicio: ir directo a la tarjeta.
+    const instalada = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+    if (guardada && instalada) location.replace(`/t/${guardada}/`);
     if (guardada) {
       document.getElementById("yaTiene").classList.remove("oculto");
-      document.getElementById("linkTarjeta").href = `/tarjeta/?id=${guardada}`;
+      document.getElementById("linkTarjeta").href = `/t/${guardada}/`;
     }
 
     const form = document.getElementById("form");
@@ -68,7 +72,7 @@
           datos: { nombre: form.nombre.value, telefono: form.telefono.value },
         });
         local.guardar("tarjetaId", id);
-        location.href = `/tarjeta/?id=${id}&nueva=1`;
+        location.href = `/t/${id}/`;
       } catch (err) {
         aviso.textContent = err.message;
         aviso.className = "aviso error";

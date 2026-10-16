@@ -10,19 +10,20 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <link rel="icon" href="/icons/icon-192.png">
-  <link id="manifest" rel="manifest" href="/api/manifest">
+  <script>
+    // Direcciones viejas (/tarjeta/?id=…) pasan a la dirección fija de la tarjeta (/t/<id>/).
+    (function () {
+      var id = new URLSearchParams(location.search).get("id");
+      if (location.pathname.indexOf("/tarjeta") === 0 && id) location.replace("/t/" + encodeURIComponent(id) + "/");
+    })();
+  </script>
+  <!-- Ruta relativa: en /t/<id>/ apunta al manifest de esta tarjeta -->
+  <link rel="manifest" href="manifest.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600&family=Fraunces:opsz,wght@9..144,600&display=swap">
   <link rel="stylesheet" href="/app.css">
   <script src="/vendor/qrcode.js"></script>
-  <script>
-    // El manifest se apunta a esta tarjeta antes de que el navegador lo lea.
-    (function () {
-      var id = new URLSearchParams(location.search).get("id");
-      if (id) document.getElementById("manifest").href = "/api/manifest?id=" + encodeURIComponent(id);
-    })();
-  </script>
 </head>
 <body>
   <main class="contenedor">
@@ -84,8 +85,8 @@
     import { api, cargarAjustes, local, pintarPremios, pintarQR, pintarSellos } from "/comun.js";
     cargarAjustes();
 
-    const params = new URLSearchParams(location.search);
-    const id = params.get("id") || local.leer("tarjetaId");
+    const ID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+    const id = location.pathname.match(ID)?.[0] || local.leer("tarjetaId");
     const $ = (s) => document.getElementById(s);
     let sellosPrevios = null;
 
@@ -97,7 +98,7 @@
       try {
         const t = await api(`/api/tarjeta?id=${encodeURIComponent(id)}`);
         local.guardar("tarjetaId", id);
-        if (!params.get("id")) history.replaceState(null, "", `/tarjeta/?id=${id}`);
+        if (!location.pathname.startsWith(`/t/${id}`)) return location.replace(`/t/${id}/`);
 
         $("nombre").textContent = t.nombre;
         const nuevo = sellosPrevios !== null && t.sellos > sellosPrevios;
@@ -107,7 +108,7 @@
         $("falta").textContent = t.disponibles ? "¡Tienes un premio!" : "";
         pintarPremios($("premios"), t.premios, t.sellos);
 
-        if (!$("qr").firstChild) pintarQR($("qr"), `${location.origin}/tarjeta/?id=${id}`);
+        if (!$("qr").firstChild) pintarQR($("qr"), `${location.origin}/t/${id}/`);
 
         $("cargando").classList.add("oculto");
         $("contenido").classList.remove("oculto");

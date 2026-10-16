@@ -18,7 +18,8 @@ const TIPOS = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": 
 
 createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
-  const fn = rutas[url.pathname];
+  const fn = rutas[url.pathname] ?? (/^\/t\/[^/]+\/manifest\.webmanifest$/.test(url.pathname) ? rutas["/t/:id/manifest.webmanifest"] : null);
+  if (/^\/t\/[^/]+\/?$/.test(url.pathname)) url.pathname = "/tarjeta/";
   if (fn) {
     const body = ["GET", "HEAD"].includes(req.method) ? undefined : await new Promise((ok) => { let d = ""; req.on("data", (c) => (d += c)); req.on("end", () => ok(d)); });
     const r = await fn(new Request(url, { method: req.method, headers: req.headers, body }));

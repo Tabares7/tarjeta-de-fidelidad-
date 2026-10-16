@@ -1,11 +1,15 @@
-// Manifest dinámico: al "añadir a pantalla de inicio", el ícono abre la tarjeta de ESE cliente.
+// Manifest de cada tarjeta, servido en /t/<id>/manifest.webmanifest.
+// La página de la tarjeta lo enlaza con una ruta relativa, así el navegador siempre
+// recibe el start_url correcto desde el HTML (sin depender de JavaScript), y el ícono
+// de la pantalla de inicio abre la tarjeta de ese cliente.
 import { AJUSTES } from "./_lib/ajustes.mjs";
 import { ID_VALIDO } from "./_lib/http.mjs";
 
-export default async (req) => {
-  const id = new URL(req.url).searchParams.get("id") ?? "";
-  const inicio = ID_VALIDO.test(id) ? `/tarjeta/?id=${id}` : "/";
+export default async (req, context) => {
+  const id = context?.params?.id ?? new URL(req.url).pathname.split("/")[2] ?? "";
+  const inicio = ID_VALIDO.test(id) ? `/t/${id}/` : "/";
   const manifest = {
+    id: inicio,
     name: `${AJUSTES.estudio} · Tarjeta`,
     short_name: AJUSTES.estudio,
     start_url: inicio,
@@ -23,4 +27,4 @@ export default async (req) => {
   });
 };
 
-export const config = { path: "/api/manifest" };
+export const config = { path: "/t/:id/manifest.webmanifest" };

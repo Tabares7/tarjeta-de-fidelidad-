@@ -5,6 +5,17 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+# Cada tarjeta tiene su propia dirección: /t/<id>/
+[[redirects]]
+  from = "/t/:id/"
+  to = "/tarjeta/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/t/:id"
+  to = "/t/:id/"
+  status = 301
+
 [[headers]]
   for = "/*"
   [headers.values]
