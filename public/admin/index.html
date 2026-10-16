@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{estudio} · Panel</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#121110">
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600&family=Fraunces:opsz,wght@9..144,600&display=swap">
+  <link rel="stylesheet" href="/app.css">
+  <script src="/vendor/qrcode.js"></script>
+  <script src="/vendor/html5-qrcode.min.js"></script>
+  <style>
+    .pestanas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: var(--superficie); border: 1px solid var(--borde); border-radius: 14px; padding: 5px; margin-bottom: 16px; }
+    .pestanas button { font: inherit; font-size: .9rem; background: none; border: 0; color: var(--tenue); padding: 10px 4px; border-radius: 10px; cursor: pointer; }
+    .pestanas button[aria-selected="true"] { background: var(--fondo); color: var(--texto); font-weight: 600; }
+    #lector { border-radius: 14px; overflow: hidden; background: #000; min-height: 260px; }
+    #lector video { border-radius: 14px; }
+    .fila { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--borde); cursor: pointer; }
+    .fila:first-child { border-top: 0; }
+    .fila small { color: var(--tenue); display: block; }
+    .chip { font-size: .8rem; padding: 4px 10px; border-radius: 99px; border: 1px solid var(--borde); white-space: nowrap; }
+    .chip.listo { border-color: var(--acento); color: var(--acento); }
+    .acciones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+    .acciones .boton { margin: 0; }
+    .acciones .principal { grid-column: 1 / -1; font-size: 1.05rem; padding: 16px; }
+    .historial { list-style: none; padding: 0; margin: 12px 0 0; font-size: .88rem; color: var(--tenue); }
+    .historial li { padding: 3px 0; }
+    .cabecera { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+    .cerrar { background: none; border: 0; color: var(--tenue); font-size: 1.6rem; line-height: 1; cursor: pointer; padding: 0 4px; }
+    .qr-grande { width: 260px; }
+    @media print {
+      .contenedor > *:not(#vistaQR) { display: none !important; }
+      #vistaQR .tarjeta { border: 0; background: #fff; color: #000; }
+      #vistaQR .texto-tenue, #vistaQR .etiqueta { color: #333; }
+    }
+  </style>
+</head>
+<body>
+  <main class="contenedor">
+    <header class="marca no-imprimir">
+      <h1 data-estudio>Tinta Studio</h1>
+      <p>Panel del estudio</p>
+    </header>
+
+    <!-- Entrada -->
+    <section id="vistaEntrar" class="tarjeta oculto">
+      <form id="formEntrar">
+        <label for="clave" style="margin-top:0">Contraseña del panel</label>
+        <input id="clave" type="password" autocomplete="current-password" required>
+        <button class="boton" type="submit">Entrar</button>
+        <p class="aviso error" id="avisoEntrar" role="status"></p>
+      </form>
+    </section>
+
+    <div id="vistaPanel" class="oculto">
+      <!-- Cliente seleccionado -->
+      <section id="cliente" class="tarjeta oculto" style="margin-bottom:16px" aria-live="polite">
+        <div class="cabecera">
+          <div>
+            <p class="etiqueta">Cliente</p>
+            <h2 class="titulo" id="cNombre"></h2>
+            <p class="texto-tenue" style="margin:2px 0 0" id="cTelefono"></p>
+          </div>
+          <button class="cerrar" id="cCerrar" aria-label="Cerrar">×</button>
+        </div>
+        <div class="sellos" id="cSellos"></div>
+        <div class="progreso"><strong id="cConteo"></strong><span class="texto-tenue" id="cCanjes"></span></div>
+        <div class="acciones">
+          <button class="boton principal" id="bSellar">Sellar visita</button>
+          <button class="boton secundario" id="bCanjear">Canjear premio</button>
+          <button class="boton secundario" id="bQuitar">Quitar sello</button>
+        </div>
+        <p class="aviso" id="cAviso" role="status"></p>
+        <ul class="historial" id="cHistorial"></ul>
+      </section>
+
+      <nav class="pestanas no-imprimir" role="tablist">
+        <button role="tab" data-vista="vistaEscanear" aria-selected="true">Escanear</button>
+        <button role="tab" data-vista="vistaClientes" aria-selected="false">Clientes</button>
+        <button role="tab" data-vista="vistaQR" aria-selected="false">QR registro</button>
+      </nav>
+
+      <section id="vistaEscanear" class="vista">
+        <div id="lector"></div>
+        <button class="boton" id="bCamara">Abrir cámara</button>
+        <p class="aviso" id="avisoCamara" role="status"></p>
+      </section>
+
+      <section id="vistaClientes" class="vista oculto">
+        <div class="tarjeta">
+          <input id="buscar" type="search" placeholder="Buscar por nombre o teléfono" autocomplete="off">
+          <p class="texto-tenue" id="total" style="font-size:.85rem;margin:10px 0 0"></p>
+          <div id="lista" style="margin-top:6px"></div>
+        </div>
+      </section>
+
+      <section id="vistaQR" class="vista oculto">
+        <div class="tarjeta centro">
+          <p class="etiqueta">Pide tu tarjeta de fidelidad</p>
+          <h2 class="titulo" data-estudio></h2>
+          <div class="qr qr-grande" id="qrRegistro"></div>
+          <p class="texto-tenue" style="margin:4px 0 0">Escanea con la cámara de tu teléfono.<br>Junta <span data-meta></span> sellos: <span data-premio></span>.</p>
+          <button class="boton secundario no-imprimir" onclick="print()">Imprimir</button>
+        </div>
+      </section>
+
+      <button class="boton secundario no-imprimir" id="bSalir" style="margin-top:28px">Cerrar sesión</button>
+    </div>
+  </main>
+
+  <script type="module">
+    import { api, cargarAjustes, local, pintarQR, pintarSellos } from "/comun.js";
+
+    const $ = (s) => document.getElementById(s);
+    const ID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+    let clave = local.leer("claveAdmin");
+    let actual = null;
+    let lector = null;
+    let ajustes;
+
+    const admin = (datos) => api("/api/admin", { metodo: "POST", datos, clave });
+
+    // ---------- Entrada ----------
+    async function iniciar() {
+      ajustes = await cargarAjustes();
+      if (clave) {
+        try { await admin({ accion: "entrar" }); return mostrarPanel(); }
+        catch { clave = null; local.borrar("claveAdmin"); }
+      }
+      $("vistaEntrar").classList.remove("oculto");
+    }
+
+    $("formEntrar").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      clave = $("clave").value;
+      try {
+        await admin({ accion: "entrar" });
+        local.guardar("claveAdmin", clave);
+        $("vistaEntrar").classList.add("oculto");
+        mostrarPanel();
+      } catch (err) {
+        $("avisoEntrar").textContent = err.message;
+      }
+    });
+
+    $("bSalir").addEventListener("click", async () => {
+      await detenerCamara();
+      local.borrar("claveAdmin");
+      location.reload();
+    });
+
+    function mostrarPanel() {
+      $("vistaPanel").classList.remove("oculto");
+      pintarQR($("qrRegistro"), location.origin + "/");
+    }
+
+    // ---------- Pestañas ----------
+    document.querySelectorAll("[role=tab]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        document.querySelectorAll("[role=tab]").forEach((x) => x.setAttribute("aria-selected", x === b));
+        document.querySelectorAll(".vista").forEach((v) => v.classList.toggle("oculto", v.id !== b.dataset.vista));
+        if (b.dataset.vista !== "vistaEscanear") await detenerCamara();
+        if (b.dataset.vista === "vistaClientes") buscar();
+      }),
+    );
+
+    // ---------- Cámara ----------
+    $("bCamara").addEventListener("click", async () => {
+      if (lector) return detenerCamara();
+      $("avisoCamara").textContent = "";
+      lector = new Html5Qrcode("lector");
+      try {
+        await lector.start({ facingMode: "environment" }, { fps: 10, qrbox: 220 }, async (texto) => {
+          const id = texto.match(ID)?.[0];
+          if (!id) return;
+          await detenerCamara();
+          abrirCliente(id);
+        });
+        $("bCamara").textContent = "Cerrar cámara";
+      } catch {
+        lector = null;
+        $("avisoCamara").className = "aviso error";
+        $("avisoCamara").textContent = "No se pudo abrir la cámara. Revisa los permisos o busca al cliente en la pestaña Clientes.";
+      }
+    });
+
+    async function detenerCamara() {
+      if (!lector) return;
+      try { await lector.stop(); lector.clear(); } catch {}
+      lector = null;
+      $("bCamara").textContent = "Abrir cámara";
+    }
+
+    // ---------- Clientes ----------
+    let temporizador;
+    $("buscar").addEventListener("input", () => { clearTimeout(temporizador); temporizador = setTimeout(buscar, 250); });
+
+    async function buscar() {
+      try {
+        const { clientes, total } = await admin({ accion: "listar", q: $("buscar").value });
+        $("total").textContent = total === 1 ? "1 cliente" : `${total} clientes`;
+        const lista = $("lista");
+        lista.innerHTML = "";
+        for (const c of clientes) {
+          const fila = document.createElement("div");
+          fila.className = "fila";
+          const info = document.createElement("div");
+          const nombre = document.createElement("div");
+          nombre.textContent = c.nombre;
+          const tel = document.createElement("small");
+          tel.textContent = c.telefono;
+          info.append(nombre, tel);
+          const chip = document.createElement("span");
+          chip.className = "chip" + (c.listo ? " listo" : "");
+          chip.textContent = c.listo ? "Premio listo" : `${c.sellos}/${c.requeridos}`;
+          fila.append(info, chip);
+          fila.addEventListener("click", () => abrirCliente(c.id));
+          lista.append(fila);
+        }
+      } catch (err) {
+        $("total").textContent = err.message;
+      }
+    }
+
+    // ---------- Ficha del cliente ----------
+    async function abrirCliente(id) {
+      try {
+        mostrarCliente(await admin({ accion: "ver", id }));
+        avisoCliente("");
+        $("cliente").scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (err) {
+        $("avisoCamara").className = "aviso error";
+        $("avisoCamara").textContent = err.message;
+      }
+    }
+
+    const NOMBRES = { sello: "Sello", quitado: "Sello quitado", canje: "Premio canjeado" };
+    const fecha = (iso) => new Date(iso).toLocaleString("es", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+
+    function mostrarCliente(c, nuevo = false) {
+      actual = c;
+      $("cliente").classList.remove("oculto");
+      $("cNombre").textContent = c.nombre;
+      $("cTelefono").textContent = c.telefono;
+      pintarSellos($("cSellos"), c.sellos, c.requeridos, nuevo);
+      $("cConteo").textContent = c.listo ? "¡Premio listo!" : `${c.sellos} de ${c.requeridos} sellos`;
+      $("cCanjes").textContent = c.canjes ? `${c.canjes} premio${c.canjes > 1 ? "s" : ""} canjeado${c.canjes > 1 ? "s" : ""}` : "";
+      $("bSellar").disabled = c.listo;
+      $("bCanjear").disabled = !c.listo;
+      $("bQuitar").disabled = c.sellos === 0;
+      const h = $("cHistorial");
+      h.innerHTML = "";
+      for (const e of c.historial) {
+        const li = document.createElement("li");
+        li.textContent = `${NOMBRES[e.tipo] ?? e.tipo} · ${fecha(e.fecha)}`;
+        h.append(li);
+      }
+    }
+
+    function avisoCliente(texto, tipo = "") {
+      $("cAviso").textContent = texto;
+      $("cAviso").className = "aviso " + tipo;
+    }
+
+    async function accion(nombre, extra = {}) {
+      try {
+        const antes = actual.sellos;
+        const c = await admin({ accion: nombre, id: actual.id, ...extra });
+        mostrarCliente(c, c.sellos > antes);
+        if (!$("vistaClientes").classList.contains("oculto")) buscar();
+        avisoCliente(
+          { sellar: "Visita sellada.", quitar: "Sello quitado.", canjear: "Premio canjeado. La tarjeta sigue sumando." }[nombre],
+          "ok",
+        );
+      } catch (err) {
+        if (err.codigo === "reciente" && confirm(err.message)) return accion(nombre, { forzar: true });
+        avisoCliente(err.message, "error");
+      }
+    }
+
+    $("bSellar").addEventListener("click", () => accion("sellar"));
+    $("bQuitar").addEventListener("click", () => confirm("¿Quitar un sello a esta tarjeta?") && accion("quitar"));
+    $("bCanjear").addEventListener("click", () => confirm(`¿Entregar el premio a ${actual.nombre}?`) && accion("canjear"));
+    $("cCerrar").addEventListener("click", () => { $("cliente").classList.add("oculto"); actual = null; });
+
+    iniciar();
+  </script>
+</body>
+</html>

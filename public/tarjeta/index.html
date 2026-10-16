@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{estudio} · Mi tarjeta</title>
+  <meta name="theme-color" content="#121110">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="icon" href="/icons/icon-192.png">
+  <link id="manifest" rel="manifest" href="/api/manifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600&family=Fraunces:opsz,wght@9..144,600&display=swap">
+  <link rel="stylesheet" href="/app.css">
+  <script src="/vendor/qrcode.js"></script>
+  <script>
+    // El manifest se apunta a esta tarjeta antes de que el navegador lo lea.
+    (function () {
+      var id = new URLSearchParams(location.search).get("id");
+      if (id) document.getElementById("manifest").href = "/api/manifest?id=" + encodeURIComponent(id);
+    })();
+  </script>
+</head>
+<body>
+  <main class="contenedor">
+    <header class="marca">
+      <h1 data-estudio>Tinta Studio</h1>
+      <p data-lema></p>
+    </header>
+
+    <section id="cargando" class="tarjeta centro texto-tenue">Cargando tu tarjeta…</section>
+
+    <section id="noEncontrada" class="tarjeta centro oculto">
+      <h2 class="titulo">No encontramos esta tarjeta</h2>
+      <p class="texto-tenue">Revisa el link o crea una nueva.</p>
+      <a class="boton" href="/">Crear tarjeta</a>
+    </section>
+
+    <div id="contenido" class="oculto">
+      <section class="tarjeta">
+        <p class="etiqueta">Tarjeta de fidelidad</p>
+        <h2 class="titulo" id="nombre"></h2>
+        <div class="sellos" id="sellos"></div>
+        <div class="progreso">
+          <strong id="conteo"></strong>
+          <span class="texto-tenue" id="falta"></span>
+        </div>
+        <div class="premio" id="premio"></div>
+      </section>
+
+      <section class="tarjeta centro">
+        <p class="etiqueta">Muestra este código en el estudio</p>
+        <div class="qr" id="qr" aria-label="Código QR de tu tarjeta"></div>
+        <p class="texto-tenue" style="margin:6px 0 0;font-size:.85rem" data-regla></p>
+      </section>
+
+      <section class="tarjeta" id="guardar">
+        <p class="etiqueta">Tenla siempre a mano</p>
+        <p style="margin:0">Guarda la tarjeta en tu pantalla de inicio y ábrela como una app.</p>
+        <details>
+          <summary>En iPhone</summary>
+          <ol>
+            <li>Abre esta página en Safari.</li>
+            <li>Toca el botón Compartir (el cuadro con la flecha).</li>
+            <li>Elige «Añadir a pantalla de inicio».</li>
+          </ol>
+        </details>
+        <details>
+          <summary>En Android</summary>
+          <ol>
+            <li>Abre esta página en Chrome.</li>
+            <li>Toca el menú ⋮ arriba a la derecha.</li>
+            <li>Elige «Instalar app» o «Añadir a pantalla de inicio».</li>
+          </ol>
+        </details>
+      </section>
+    </div>
+  </main>
+
+  <script type="module">
+    import { api, cargarAjustes, local, pintarQR, pintarSellos } from "/comun.js";
+    cargarAjustes();
+
+    const params = new URLSearchParams(location.search);
+    const id = params.get("id") || local.leer("tarjetaId");
+    const $ = (s) => document.getElementById(s);
+    let sellosPrevios = null;
+
+    // Si se abre desde la pantalla de inicio, no se ven las instrucciones de guardar.
+    if (matchMedia("(display-mode: standalone)").matches || navigator.standalone) $("guardar").classList.add("oculto");
+
+    async function cargar() {
+      if (!id) return mostrarError();
+      try {
+        const t = await api(`/api/tarjeta?id=${encodeURIComponent(id)}`);
+        local.guardar("tarjetaId", id);
+        if (!params.get("id")) history.replaceState(null, "", `/tarjeta/?id=${id}`);
+
+        $("nombre").textContent = t.nombre;
+        const nuevo = sellosPrevios !== null && t.sellos > sellosPrevios;
+        pintarSellos($("sellos"), t.sellos, t.requeridos, nuevo);
+        sellosPrevios = t.sellos;
+        $("conteo").textContent = `${t.sellos} de ${t.requeridos} sellos`;
+        const faltan = t.requeridos - t.sellos;
+        $("falta").textContent = t.listo ? "" : `te ${faltan === 1 ? "falta 1" : `faltan ${faltan}`}`;
+
+        const premio = $("premio");
+        premio.className = "premio" + (t.listo ? " listo" : "");
+        premio.innerHTML = "";
+        const b = document.createElement("b");
+        b.textContent = t.listo ? "¡Premio listo! " : "Premio: ";
+        premio.append(b, t.listo ? `Pídelo en tu próxima visita: ${t.premio}.` : `${t.premio}.`);
+
+        if (!$("qr").firstChild) pintarQR($("qr"), `${location.origin}/tarjeta/?id=${id}`);
+
+        $("cargando").classList.add("oculto");
+        $("contenido").classList.remove("oculto");
+      } catch (e) {
+        if (e.status === 404) {
+          if (local.leer("tarjetaId") === id) local.borrar("tarjetaId");
+          mostrarError();
+        } else {
+          $("cargando").textContent = "Sin conexión. Intenta de nuevo en un momento.";
+        }
+      }
+    }
+
+    function mostrarError() {
+      $("cargando").classList.add("oculto");
+      $("noEncontrada").classList.remove("oculto");
+    }
+
+    cargar();
+    // Se actualiza sola al volver a la app (por ejemplo, justo después de que te sellen).
+    document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && cargar());
+    setInterval(() => document.visibilityState === "visible" && cargar(), 15000);
+  </script>
+</body>
+</html>

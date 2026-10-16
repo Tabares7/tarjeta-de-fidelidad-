@@ -1,0 +1,64 @@
+# Tarjeta de fidelidad · Versión 1
+
+Tarjeta de sellos digital para el estudio. El cliente se registra con un QR, guarda su tarjeta en la pantalla de inicio del teléfono y tú la sellas desde un panel privado con la cámara.
+
+## Páginas
+
+| Dirección | Para quién | Qué hace |
+|---|---|---|
+| `/` | Clientes | Registro con nombre y teléfono |
+| `/tarjeta/?id=…` | Clientes | Su tarjeta: sellos, premio y su QR |
+| `/admin/` | Tú | Escanear tarjetas, sellar, canjear premios, lista de clientes y QR de registro para imprimir |
+
+## Cambiar nombre, premio, número de sellos y colores
+
+Todo está en un solo archivo: **`netlify/functions/_lib/ajustes.mjs`**. Cambias los valores, subes el archivo a GitHub y Netlify publica la nueva versión sola en uno o dos minutos.
+
+Para el ícono de la pantalla de inicio, reemplaza `public/icons/icon-192.png` e `icon-512.png` por tu logo (cuadrado, con esos mismos tamaños en píxeles).
+
+## Publicarla (una sola vez, ~15 minutos)
+
+1. **GitHub.** Crea una cuenta en github.com y un repositorio nuevo (privado está bien), por ejemplo `tarjeta-fidelidad`. En el repositorio, toca «uploading an existing file» y arrastra **todo el contenido** de esta carpeta (menos `node_modules`, si existe).
+2. **Netlify.** Entra en app.netlify.com con tu cuenta de GitHub → *Add new project* → *Import an existing project* → GitHub → elige el repositorio. No cambies nada en la configuración de build y toca *Deploy*.
+3. **Contraseña del panel.** En Netlify: *Project configuration* → *Environment variables* → *Add a variable*. Nombre: `ADMIN_PASSWORD`. Valor: una contraseña larga que solo sepas tú. Después ve a *Deploys* → *Trigger deploy* para que la tome.
+4. **Listo.** Netlify te da una dirección tipo `algo.netlify.app` (puedes cambiar el nombre en *Domain management*, o conectar tu propio dominio más adelante).
+   - Entra en `/admin/` desde tu teléfono, pon la contraseña y abre la pestaña **QR registro**. Imprime ese QR para el estudio.
+
+Los datos de los clientes se guardan en Netlify Blobs, que viene incluido en Netlify. No hace falta crear otra cuenta.
+
+## Uso diario
+
+- **Cliente nuevo:** escanea el QR del estudio, pone su nombre y teléfono y le aparece su tarjeta. Si se registra dos veces con el mismo teléfono, recupera la misma tarjeta.
+- **Sellar:** en `/admin/` → *Abrir cámara* → apuntas al QR de su tarjeta → *Sellar visita*. Si la cámara falla, búscalo en *Clientes*.
+- **Error al sellar:** *Quitar sello*. Si intentas sellar dos veces en menos de 12 horas, el panel te pide confirmación.
+- **Premio:** al completar los sellos, la tarjeta del cliente muestra «¡Premio listo!» y en el panel se activa *Canjear premio*, que reinicia los sellos.
+
+## Probarla en tu computadora (opcional)
+
+Necesitas Node.js 20 o más nuevo.
+
+```
+npm install
+npm run dev
+```
+
+Abre http://localhost:8888. El panel está en `/admin/` con la contraseña `demo`. En este modo los datos se borran al cerrar el servidor.
+
+## Estructura
+
+```
+netlify/functions/        Servidor (corre en Netlify)
+  _lib/ajustes.mjs        ← valores editables
+  _lib/db.mjs             Guardado de clientes
+  registro.mjs            Crear tarjeta
+  tarjeta.mjs             Ver tarjeta
+  admin.mjs               Acciones del panel (con contraseña)
+  manifest.mjs            Ícono de pantalla de inicio por cliente
+public/                   Páginas que ve la gente
+scripts/dev.mjs           Servidor local de pruebas
+```
+
+## Próximas versiones
+
+- **V2:** botón «Añadir a Google Wallet».
+- **V3:** botón «Añadir a Apple Wallet» (requiere cuenta de Apple Developer).

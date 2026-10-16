@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{estudio} · Tarjeta de fidelidad</title>
+  <meta name="theme-color" content="#121110">
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600&family=Fraunces:opsz,wght@9..144,600&display=swap">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <main class="contenedor">
+    <header class="marca">
+      <h1 data-estudio>Tinta Studio</h1>
+      <p data-lema></p>
+    </header>
+
+    <div id="yaTiene" class="tarjeta oculto" style="margin-bottom:16px">
+      <p class="texto-tenue" style="margin:0">Ya tienes una tarjeta en este teléfono.</p>
+      <a id="linkTarjeta" class="boton" href="/tarjeta/">Ver mi tarjeta</a>
+    </div>
+
+    <section class="tarjeta">
+      <p class="etiqueta">Tarjeta de fidelidad</p>
+      <h2 class="titulo">Junta <span data-meta>5</span> sellos y gana</h2>
+      <p class="texto-tenue" style="margin:8px 0 0"><span data-premio></span>. <span data-regla></span></p>
+
+      <form id="form" novalidate>
+        <label for="nombre">Tu nombre</label>
+        <input id="nombre" name="nombre" autocomplete="name" required maxlength="60">
+        <label for="telefono">Tu teléfono</label>
+        <input id="telefono" name="telefono" type="tel" inputmode="tel" autocomplete="tel" required>
+        <button class="boton" type="submit" id="enviar">Crear mi tarjeta</button>
+        <p class="aviso" id="aviso" role="status"></p>
+      </form>
+    </section>
+
+    <p class="texto-tenue centro" style="font-size:.82rem;margin-top:18px">
+      Usamos tu teléfono solo para identificar tu tarjeta.
+    </p>
+  </main>
+
+  <script type="module">
+    import { api, cargarAjustes, local } from "/comun.js";
+    cargarAjustes();
+
+    const guardada = local.leer("tarjetaId");
+    if (guardada) {
+      document.getElementById("yaTiene").classList.remove("oculto");
+      document.getElementById("linkTarjeta").href = `/tarjeta/?id=${guardada}`;
+    }
+
+    const form = document.getElementById("form");
+    const aviso = document.getElementById("aviso");
+    const boton = document.getElementById("enviar");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      aviso.textContent = "";
+      aviso.className = "aviso";
+      boton.disabled = true;
+      try {
+        const { id } = await api("/api/registro", {
+          metodo: "POST",
+          datos: { nombre: form.nombre.value, telefono: form.telefono.value },
+        });
+        local.guardar("tarjetaId", id);
+        location.href = `/tarjeta/?id=${id}&nueva=1`;
+      } catch (err) {
+        aviso.textContent = err.message;
+        aviso.className = "aviso error";
+        boton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
